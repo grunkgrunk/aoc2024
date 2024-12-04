@@ -1,7 +1,7 @@
 (ns mini.playground
   (:require
    [clojure.string :as str]))
-(require '[clojure.string :as str])
+
 
 ;; Day 1
 
@@ -102,3 +102,77 @@
 
 
 
+;; Day 4
+
+;; Part 1
+
+;; Idea: Consider each row, column and diagonal in the input. Go thru each of these forwards and backwards,
+;; and count up every occurence of XMAS. 
+
+(defn transpose [xs]
+  (vec (apply map vector xs)))
+
+(defn rotate [xs]
+  (vec (reverse (transpose xs))))
+
+(defn diagonal [xs]
+  (mapv #(get-in xs [% %]) (range (count xs))))
+
+(defn upper-diagonals [xs]
+  (let [n (count xs)]
+    (vec (for [i (range (dec n))]
+           (vec (for [j (range (inc i))]
+                  (get-in xs [j (- i j)])))))))
+
+(defn all-diagonals* [xs]
+  (->> [(rotate xs) (rotate (transpose xs))]
+       (mapcat upper-diagonals)
+       (concat [(diagonal xs)])
+       (vec)))
+
+(defn all-diagonals [xs]
+  (concat (all-diagonals* xs) (all-diagonals* (rotate xs))))
+
+(defn generate-strings [s]
+  (let [cols (apply mapv vector (str/split-lines s)) rows (transpose cols)]
+    (println cols)
+    (map #(apply str %) (concat rows cols (all-diagonals rows)))))
+
+
+(defn xmas-occurences* [s]
+  (->> (re-seq #"XMAS" s)
+       (count)))
+
+(defn xmas-occurences [s]
+  (->> [s (str/reverse s)]
+       (map xmas-occurences*)
+       (apply +)))
+
+
+(apply + (map xmas-occurences (generate-strings (slurp "input/4.txt"))))
+
+;; Part 2
+
+(defn select-indices [xs idxs]
+  (map #(get-in xs %) idxs))
+
+(defn map-matrix [f mat]
+  (map-indexed
+   (fn [i row] (map-indexed (fn [j v] (f [i j] v)) row)) mat))
+
+
+(defn inside? [i j n]
+  (and (< 0 i n) (< 0 j n)))
+
+(defn is-valid-cross? [i j mat]
+  (and (inside? i j (count mat)) (= (get-in mat [i j]) \A)
+       (let [a (select-indices mat [[(dec i) (dec j)] [(inc i) (inc j)]])
+             b (select-indices mat [[(dec i) (inc j)] [(inc i) (dec j)]])]
+         (= #{\M \S} (set a) (set b)))))
+
+(let [mat (apply mapv vector (str/split-lines (slurp "input/4.txt")))]
+  (->> mat
+       (map-matrix (fn [[i j] _] (is-valid-cross? i j mat)))
+       (flatten)
+       (map #(if % 1 0))
+       (apply +)))
