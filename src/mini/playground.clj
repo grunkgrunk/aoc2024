@@ -160,7 +160,6 @@
   (map-indexed
    (fn [i row] (map-indexed (fn [j v] (f [i j] v)) row)) mat))
 
-
 (defn inside? [i j n]
   (and (< 0 i n) (< 0 j n)))
 
@@ -176,3 +175,54 @@
        (flatten)
        (map #(if % 1 0))
        (apply +)))
+
+
+;; Day 5
+
+(defn build-ordering [result [a b]]
+  (update result a (fnil conj #{}) b))
+
+(defn parse-ordering-rules [s]
+  (->> s
+       (str/split-lines)
+       (map #(str/split % #"\|"))
+       (reduce build-ordering {})))
+
+(defn parse-pages [s]
+  (->> s (str/split-lines) (map #(str/split % #","))))
+
+(defn cmp [rules a b]
+  (cond
+    (contains? (get rules a) b) -1
+    (contains? (get rules b) a) 1
+    :else 0))
+
+(defn sort-according-to-rules [rules pages]
+  (sort-by identity #(cmp rules %1 %2) pages))
+
+(defn is-correct? [rules pages]
+  (= (sort-according-to-rules rules pages) pages))
+
+(defn middle-number [xs]
+  (get xs (quot (count xs) 2)))
+
+
+(defn parse-and-solve [solve-fn]
+  (let [[fst snd] (str/split (slurp "input/5.txt") #"\n\n")
+        rules (parse-ordering-rules fst)
+        pages (parse-pages snd)]
+    (->> pages
+         (solve-fn rules)
+         (map (comp parse-double middle-number vec))
+         (apply +))))
+
+(parse-and-solve
+ (fn [rules pages]
+   (filter #(is-correct? rules %) pages)))
+
+;; Part 2
+
+(parse-and-solve (fn [rules pages]
+                   (->> pages
+                        (remove #(is-correct? rules %))
+                        (map #(sort-according-to-rules rules %)))))
