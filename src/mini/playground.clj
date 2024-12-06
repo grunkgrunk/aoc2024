@@ -1,7 +1,7 @@
 (ns mini.playground
   (:require
-   [clojure.string :as str]))
-
+   [clojure.string :as str]
+   [clojure.set :as set]))
 
 ;; Day 1
 
@@ -156,7 +156,7 @@
 (defn select-indices [xs idxs]
   (map #(get-in xs %) idxs))
 
-(defn map-matrix [f mat]
+(defn map-matrix-indexed [f mat]
   (map-indexed
    (fn [i row] (map-indexed (fn [j v] (f [i j] v)) row)) mat))
 
@@ -171,7 +171,7 @@
 
 (let [mat (apply mapv vector (str/split-lines (slurp "input/4.txt")))]
   (->> mat
-       (map-matrix (fn [[i j] _] (is-valid-cross? i j mat)))
+       (map-matrix-indexed (fn [[i j] _] (is-valid-cross? i j mat)))
        (flatten)
        (map #(if % 1 0))
        (apply +)))
@@ -226,3 +226,89 @@
                    (->> pages
                         (remove #(is-correct? rules %))
                         (map #(sort-according-to-rules rules %)))))
+
+
+;; Day 6 
+
+;; Part 1
+
+(defn find-index [el mat]
+  (first (for [[i row] (map-indexed vector mat)
+               [j v] (map-indexed vector row) :when (= el v)] [i j])))
+
+(defn update-grid [grid pos]
+  (assoc-in grid pos \X))
+
+(defn parse-grid [s]
+  (->> s
+       (str/split-lines)
+       (mapv (comp vec seq))))
+
+(defn initialize-state [grid]
+  (let [pos (find-index \^ grid)
+        height (count grid)
+        width (count (peek grid))]
+    {:grid (update-grid grid pos)
+     :position pos
+     :direction [-1 0]
+     :width width
+     :height height}))
+
+(defn rotate-direction [[dx dy]]
+  [dy (- dx)])
+
+(defn out-of-bounds? [[x y] width height]
+  (not (and (< -1 x width) (< -1 y height))))
+
+(defn solve [{:keys [grid position direction width height] :as state}]
+  (let [new-pos (mapv + position direction)]
+    (if (out-of-bounds? new-pos width height) grid
+        (recur (merge state
+                      (case (get-in grid new-pos)
+                        \. {:grid (update-grid grid new-pos) :position new-pos}
+                        \# {:direction (rotate-direction direction)}
+                        {:position new-pos}))))))
+
+(defn count-visited [grid]
+  (->> grid (flatten) (filter #(= \X %)) (count)))
+
+(->>  (slurp "input/6.txt")
+      (parse-grid)
+      (initialize-state)
+      (solve)
+      (count-visited))
+
+
+;; Part 2
+
+(defn place-obstacle [grid pos]
+  (assoc-in grid pos \#))
+
+(defn can-place-obstacle? [grid pos]
+  (= \. (get-in grid pos)))
+
+(defn all-possible-grids [grid]
+  (for [[i row] (map-indexed vector grid)
+        [j _] (map-indexed vector row) :when (can-place-obstacle? grid [i j])]
+    (place-obstacle grid [i j])))
+
+
+(defn has-loop?
+  ([state] (has-loop? state #{}))
+  ([{:keys [grid position direction width height] :as state} visited]
+   (let [new-pos (mapv + position direction) currently-visiting [position direction]]
+     (cond
+       (out-of-bounds? new-pos width height) false
+       (contains? visited currently-visiting) true
+       :else (recur (merge state
+                           (case (get-in grid new-pos) \. {:grid (update-grid grid new-pos) :position new-pos}
+                                 \# {:direction (rotate-direction direction)}
+                                 {:position new-pos}))
+                    (conj visited currently-visiting))))))
+
+(->> (slurp "input/6.txt")
+     (parse-grid)
+     (all-possible-grids)
+     (map initialize-state)
+     (filter has-loop?)
+     (count))
