@@ -270,7 +270,10 @@
                         {:position new-pos}))))))
 
 (defn count-visited [grid]
-  (->> grid (flatten) (filter #(= \X %)) (count)))
+  (->> grid
+       (flatten)
+       (filter #(= \X %))
+       (count)))
 
 (->>  (slurp "input/6.txt")
       (parse-grid)
@@ -285,7 +288,7 @@
   (assoc-in grid pos \#))
 
 (defn can-place-obstacle? [grid pos]
-  (= \. (get-in grid pos)))
+  (= \X (get-in grid pos)))
 
 (defn all-possible-grids [grid]
   (for [[i row] (map-indexed vector grid)
@@ -301,14 +304,18 @@
        (out-of-bounds? new-pos width height) false
        (contains? visited currently-visiting) true
        :else (recur (merge state
-                           (case (get-in grid new-pos) \. {:grid (update-grid grid new-pos) :position new-pos}
-                                 \# {:direction (rotate-direction direction)}
-                                 {:position new-pos}))
+                           (case (get-in grid new-pos)
+                             ;; #{\. \X} {:grid (update-grid grid new-pos) :position new-pos}
+                             \# {:direction (rotate-direction direction)}
+                             {:position new-pos}))
                     (conj visited currently-visiting))))))
 
-(->> (slurp "input/6.txt")
-     (parse-grid)
-     (all-possible-grids)
-     (map initialize-state)
-     (filter has-loop?)
-     (count))
+(let [state (->> (slurp "input/6.txt")
+                 (parse-grid)
+                 (initialize-state))]
+  (->> state
+       (solve)
+       (all-possible-grids)
+       (map #(assoc state :grid %))
+       (filter has-loop?)
+       (count)))
