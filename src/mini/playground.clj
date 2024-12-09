@@ -319,3 +319,45 @@
        (map #(assoc state :grid %))
        (filter has-loop?)
        (count)))
+
+
+;; Day 7
+
+;; Part 1
+
+(defn combine-first-two [f [a b & rest]]
+  (cons (f a b) rest))
+
+(defn solve* [fns target lst]
+  (cond
+    (> (first lst) target) false
+    (= 1 (count lst)) (= (first lst) target)
+    :else (some #(solve* fns target (combine-first-two % lst)) fns)))
+
+(defn parse-line [s]
+  (let [[target nums] (str/split s #": ")]
+    [((comp bigint parse-double) target) (map (comp bigint parse-double) (str/split nums #" "))]))
+
+(defn dot-prod [a b]
+  (apply + (map * a b)))
+
+
+(defn parse [s]
+  (->> s
+       (str/split-lines)
+       (map parse-line)))
+
+(defn solve [fns s]
+  (let [parsed (parse s)]
+    (->> parsed
+         (map (comp #(if % 1 0) #(apply solve* fns %)))
+         (dot-prod (map first parsed)))))
+
+(solve [* +] (slurp "input/7.txt"))
+
+;; Part 2
+
+(defn concatenate* [a b]
+  (bigint (parse-double (str a b))))
+
+(solve [concatenate* * +] (slurp "input/7.txt"))
